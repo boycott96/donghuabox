@@ -74,7 +74,7 @@ function downloadFile(url, savePath) {
       response.on('data', (chunk) => {
         downloadedBytes += chunk.length
         const currentTime = Date.now()
-        
+
         if (currentTime - lastTime >= 1000) {
           const speed = ((downloadedBytes - lastBytes) * 1000) / (currentTime - lastTime)
           lastBytes = downloadedBytes
