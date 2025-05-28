@@ -11,9 +11,10 @@ import http from 'http'
 // 用于存储当前的下载请求和解析窗口
 let currentDownloadRequest = null
 let currentParseWindow = null
+let mainWindow = null
 
 function createWindow() {
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 850,
     minWidth: 1000,
@@ -50,6 +51,7 @@ function downloadFile(url, savePath) {
     let startTime = Date.now()
     let lastBytes = 0
     let lastTime = startTime
+    let progressTimeout = null
 
     const options = {
       headers: {
@@ -63,13 +65,48 @@ function downloadFile(url, savePath) {
       }
     }
 
+    const clearProgressTimeout = () => {
+      if (progressTimeout) {
+        clearTimeout(progressTimeout)
+        progressTimeout = null
+      }
+    }
+
+    // 发送进度消息的函数
+    const sendProgress = (progress, bytesReceived, totalBytes, speed) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('download-progress', {
+          progress,
+          bytesReceived,
+          totalBytes,
+          speed
+        })
+      }
+    }
+
     const request = httpClient.get(url, options, (response) => {
       if (response.statusCode !== 200) {
+        clearProgressTimeout()
         return reject({ success: false, message: `HTTP错误: ${response.statusCode}` })
       }
 
       const totalBytes = parseInt(response.headers['content-length'], 10)
       let downloadedBytes = 0
+
+      // 设置超时检测
+      const checkProgress = () => {
+        clearProgressTimeout()
+        progressTimeout = setTimeout(() => {
+          // 如果 5 秒内没有新的数据，发送当前进度
+          const currentTime = Date.now()
+          const speed = ((downloadedBytes - lastBytes) * 1000) / (currentTime - lastTime)
+          lastBytes = downloadedBytes
+          lastTime = currentTime
+
+          sendProgress(downloadedBytes / totalBytes, downloadedBytes, totalBytes, speed)
+          checkProgress()
+        }, 5000)
+      }
 
       response.on('data', (chunk) => {
         downloadedBytes += chunk.length
@@ -80,35 +117,50 @@ function downloadFile(url, savePath) {
           lastBytes = downloadedBytes
           lastTime = currentTime
 
-          BrowserWindow.getFocusedWindow()?.webContents.send('download-progress', {
-            progress: downloadedBytes / totalBytes,
-            bytesReceived: downloadedBytes,
-            totalBytes: totalBytes,
-            speed: speed
-          })
+          sendProgress(downloadedBytes / totalBytes, downloadedBytes, totalBytes, speed)
+          // 重置进度检测
+          checkProgress()
         }
       })
 
       response.pipe(file)
 
       file.on('finish', () => {
+        clearProgressTimeout()
         file.close()
         currentDownloadRequest = null
+        // 确保发送 100% 进度
+        sendProgress(1, totalBytes, totalBytes, 0)
         resolve({ success: true, message: '视频下载完成', path: savePath })
       })
 
       file.on('error', (err) => {
+        clearProgressTimeout()
         file.close()
         fs.unlink(savePath, () => {})
         currentDownloadRequest = null
         reject({ success: false, message: `文件写入错误: ${err.message}` })
       })
+
+      // 开始进度检测
+      checkProgress()
     })
 
     // 保存当前下载请求的引用
-    currentDownloadRequest = { request, file, savePath }
+    currentDownloadRequest = { 
+      request, 
+      file, 
+      savePath,
+      cleanup: () => {
+        clearProgressTimeout()
+        if (currentDownloadRequest) {
+          currentDownloadRequest = null
+        }
+      }
+    }
 
     request.on('error', (err) => {
+      clearProgressTimeout()
       file.close()
       fs.unlink(savePath, () => {})
       currentDownloadRequest = null
@@ -120,7 +172,8 @@ function downloadFile(url, savePath) {
 // 取消下载
 ipcMain.on('cancel-download', () => {
   if (currentDownloadRequest) {
-    const { request, file, savePath } = currentDownloadRequest
+    const { request, file, savePath, cleanup } = currentDownloadRequest
+    cleanup()
     request.abort() // 中断请求
     file.close() // 关闭文件流
     fs.unlink(savePath, () => {}) // 删除未完成的文件
@@ -139,23 +192,42 @@ ipcMain.on('cancel-parse', () => {
 // 准备下载，显示保存对话框
 ipcMain.on('prepare-download', async (event, { url, filename }) => {
   try {
-    const win = BrowserWindow.getFocusedWindow()
-
     // 让用户选择保存位置
-    const result = await dialog.showSaveDialog(win, {
+    const result = await dialog.showSaveDialog(mainWindow, {
       title: '选择保存位置',
       defaultPath: filename,
       buttonLabel: '保存视频'
     })
 
     // 发送保存对话框结果
-    win.webContents.send('save-dialog-complete', {
+    mainWindow.webContents.send('save-dialog-complete', {
       canceled: result.canceled,
       filePath: result.filePath,
       url: url
     })
   } catch (error) {
-    BrowserWindow.getFocusedWindow()?.webContents.send('download-error', error.message)
+    mainWindow.webContents.send('download-error', error.message)
+  }
+})
+
+// 选择保存目录
+ipcMain.on('select-directory', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择保存目录',
+      properties: ['openDirectory', 'createDirectory'],
+      buttonLabel: '选择目录'
+    })
+
+    mainWindow.webContents.send('directory-selected', {
+      canceled: result.canceled,
+      filePath: result.filePaths[0]
+    })
+  } catch (error) {
+    mainWindow.webContents.send('directory-selected', {
+      canceled: true,
+      error: error.message
+    })
   }
 })
 
@@ -165,15 +237,19 @@ ipcMain.on('start-download', async (event, { url, filePath }) => {
     const result = await downloadFile(url, filePath)
 
     if (result.success) {
-      BrowserWindow.getFocusedWindow()?.webContents.send('download-complete', {
-        success: true,
-        filePath: filePath
-      })
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('download-complete', {
+          success: true,
+          filePath: filePath
+        })
+      }
     } else {
       throw new Error(result.message)
     }
   } catch (error) {
-    BrowserWindow.getFocusedWindow()?.webContents.send('download-error', error.message)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('download-error', error.message)
+    }
   }
 })
 
