@@ -3,6 +3,19 @@
     <div class="log-header">
       <svg-icon class="log-icon" name="log" />
       <h3 v-if="!collapsed">系统日志</h3>
+      <div v-if="!collapsed" class="log-controls">
+        <div class="scroll-control">
+          <a-switch v-model="autoScroll" size="small" :default-checked="true" />
+          <span class="scroll-label">{{ autoScroll ? '自动滚动' : '手动滚动' }}</span>
+        </div>
+        <a-tooltip content="清空日志">
+          <a-button size="mini" @click="clearLogs">
+            <template #icon>
+              <svg-icon name="delete" />
+            </template>
+          </a-button>
+        </a-tooltip>
+      </div>
     </div>
     <div ref="logContentRef" class="log-content">
       <div v-for="(log, index) in logStore.logs" :key="index" class="log-item" :class="log.type">
@@ -31,6 +44,7 @@ defineProps({
 
 const logStore = useLogStore()
 const logContentRef = ref(null)
+const autoScroll = ref(true)
 
 const formatTime = (timestamp) => {
   const date = new Date(timestamp)
@@ -54,9 +68,13 @@ const formatTime = (timestamp) => {
   return `${month}-${day} ${time}`
 }
 
+const clearLogs = () => {
+  logStore.clearLogs()
+}
+
 const scrollToBottom = async () => {
   await nextTick()
-  if (logContentRef.value) {
+  if (logContentRef.value && autoScroll.value) {
     logContentRef.value.scrollTop = logContentRef.value.scrollHeight
   }
 }
@@ -95,6 +113,13 @@ watch(() => logStore.logs.length, scrollToBottom)
     font-size: 14px;
     font-weight: 500;
     color: var(--color-text-1);
+    flex: 1;
+  }
+  .log-controls {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+    align-items: center;
   }
 }
 
@@ -144,6 +169,24 @@ watch(() => logStore.logs.length, scrollToBottom)
     padding: 0 4px;
     border-radius: 4px;
     background-color: var(--color-fill-2);
+  }
+}
+
+.log-controls {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  align-items: center;
+
+  .scroll-control {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    .scroll-label {
+      font-size: 12px;
+      color: var(--color-text-2);
+    }
   }
 }
 </style>

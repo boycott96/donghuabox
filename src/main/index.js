@@ -56,7 +56,7 @@ function downloadFile(url, savePath) {
     const options = {
       headers: {
         'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15',
         Accept: '*/*',
         'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
         Referer: 'https://www.douyin.com/',
@@ -147,9 +147,9 @@ function downloadFile(url, savePath) {
     })
 
     // 保存当前下载请求的引用
-    currentDownloadRequest = { 
-      request, 
-      file, 
+    currentDownloadRequest = {
+      request,
+      file,
       savePath,
       cleanup: () => {
         clearProgressTimeout()
@@ -264,11 +264,11 @@ ipcMain.on('parse-douyin', async (event, url) => {
     const douyinWindow = new BrowserWindow({
       width: 800,
       height: 600,
-      show: false,
+      show: true,
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
-        webSecurity: false
+        webSecurity: true
       }
     })
 
@@ -332,7 +332,7 @@ ipcMain.on('parse-douyin', async (event, url) => {
             })
           }
           currentParseWindow = null
-          douyinWindow.destroy()
+          // douyinWindow.destroy()
         } catch (error) {
           event.reply('parse-douyin-result', {
             success: false,
@@ -340,7 +340,7 @@ ipcMain.on('parse-douyin', async (event, url) => {
             responseText: error.responseText
           })
           currentParseWindow = null
-          douyinWindow.destroy()
+          // douyinWindow.destroy()
         }
       }
     })
@@ -354,7 +354,7 @@ ipcMain.on('parse-douyin', async (event, url) => {
         responseText: error.responseText
       })
       currentParseWindow = null
-      douyinWindow.destroy()
+      // douyinWindow.destroy()
     }
   } catch (error) {
     event.reply('parse-douyin-result', {

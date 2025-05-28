@@ -364,6 +364,7 @@ const selectedRows = ref([])
 const fileInput = ref(null)
 const excelColumns = ref([])
 const selectedColumn = ref('')
+const excelData = ref([])
 
 // 表格列定义
 const tableColumns = [
@@ -386,21 +387,20 @@ const hasSelectedVideos = computed(() => selectedRows.value.length > 0)
 
 // 从文本中提取抖音链接
 const extractDouyinUrl = (text) => {
-  // 匹配抖音链接的正则表达式（支持标准链接和短链接）
+  // 匹配抖音链接的正则表达式（支持更多格式的分享文本）
   const douyinRegex =
-    /https?:\/\/(?:(?:www\.)?douyin\.com\/video\/[0-9]+|v\.douyin\.com\/[a-zA-Z0-9]+)/
+    /https?:\/\/(?:(?:www\.)?douyin\.com\/video\/[0-9]+|v\.douyin\.com\/[a-zA-Z0-9_-]+)/
   const match = text.match(douyinRegex)
   return match ? match[0] : null
 }
 
 // 处理粘贴事件
 const handlePaste = (e) => {
+  e.preventDefault() // 阻止默认粘贴行为
   const pastedText = e.clipboardData.getData('text')
-  const url = extractDouyinUrl(pastedText)
-  if (url) {
-    inputText.value = pastedText
-    logStore.addLog(`检测到抖音链接: ${url}`, 'info')
-  }
+  // 直接使用完整的粘贴文本
+  inputText.value = pastedText
+  logStore.addLog(`已粘贴分享文本`, 'info')
 }
 
 // 模拟进度更新
@@ -449,7 +449,7 @@ const cancelParse = () => {
 const parseVideo = async () => {
   const url = extractDouyinUrl(inputText.value)
   if (!url) {
-    Message.error('请输入有效的抖音视频链接')
+    Message.error('未在文本中找到有效的抖音视频链接')
     logStore.addLog('无效的视频链接', 'error')
     return
   }
@@ -464,6 +464,7 @@ const parseVideo = async () => {
 // 监听API响应数据
 window.electron.ipcRenderer.on('parse-douyin-result', (event, data) => {
   clearInterval(progressInterval)
+  console.log('data', data)
   logStore.addLog('成功获取抖音视频信息', 'info')
 
   if (data.success) {
@@ -472,7 +473,7 @@ window.electron.ipcRenderer.on('parse-douyin-result', (event, data) => {
   } else {
     progressStatus.value = '解析失败'
     progressWidth.value = 0
-    logStore.addLog(`解析失败: ${data.error || '未知错误'}`, 'error')
+    logStore.addLog(`解析失败|视频不存在: ${data.error || '未知错误'}`, 'error')
   }
   isLoading.value = false
 })
@@ -610,18 +611,39 @@ const handleExcelFile = (file) => {
       const data = new Uint8Array(e.target.result)
       const workbook = XLSX.read(data, { type: 'array' })
       const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
-      const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 'A' })
 
-      // 获取列信息
-      const columns = Object.keys(jsonData[0] || {}).map((key) => ({
-        key,
-        title: `${key}列`
+      // 使用 sheet_to_json 时设置 header: 1 来获取原始数据（包括表头）
+      const rawData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 })
+
+      if (rawData.length < 2) {
+        Message.error('Excel 文件必须包含表头和数据')
+        return
+      }
+
+      // 第一行作为表头
+      const headers = rawData[0]
+
+      // 检查是否有空的表头
+      if (headers.some((header) => !header)) {
+        Message.error('Excel 文件包含空的表头，请检查')
+        return
+      }
+
+      // 构建列信息
+      const columns = headers.map((header, index) => ({
+        key: String(index),
+        title: header,
+        originalHeader: header
       }))
 
       excelColumns.value = columns
-      Message.success('Excel文件解析成功，请选择要处理的列')
+      // 保存原始数据供后续使用
+      excelData.value = rawData.slice(1) // 除去表头的数据
+
+      Message.success('Excel 文件解析成功，请选择包含抖音链接的列')
     } catch (error) {
-      Message.error('Excel文件解析失败：' + error.message)
+      Message.error('Excel 文件解析失败：' + error.message)
+      console.error('Excel 解析错误:', error)
     }
   }
   reader.readAsArrayBuffer(file)
@@ -632,25 +654,30 @@ const startBatchParse = async () => {
   let urls = []
 
   if (selectedColumn.value) {
-    // 从Excel中获取链接
-    const reader = new FileReader()
-    reader.onload = async (e) => {
-      const data = new Uint8Array(e.target.result)
-      const workbook = XLSX.read(data, { type: 'array' })
-      const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
-      const jsonData = XLSX.utils.sheet_to_json(firstSheet)
-      urls = jsonData.map((row) => row[selectedColumn.value]).filter((url) => url)
-      await processBatchUrls(urls)
+    // 从 Excel 数据中获取链接
+    const columnIndex = excelColumns.value.findIndex((col) => col.key === selectedColumn.value)
+    if (columnIndex !== -1) {
+      urls = excelData.value
+        .map((row) => row[columnIndex])
+        .filter((url) => url) // 过滤掉空值
+        .map((url) => extractDouyinUrl(String(url)))
+        .filter((url) => url) // 过滤掉无效链接
     }
-    reader.readAsArrayBuffer(fileInput.value.files[0])
   } else {
     // 从文本输入中获取链接
     urls = batchInputText.value
       .split('\n')
       .map((line) => extractDouyinUrl(line))
       .filter((url) => url)
-    await processBatchUrls(urls)
   }
+
+  if (urls.length === 0) {
+    Message.error('没有找到有效的抖音链接')
+    return
+  }
+
+  Message.info(`找到 ${urls.length} 个有效链接，开始解析...`)
+  await processBatchUrls(urls)
 }
 
 // 处理批量URL
@@ -701,7 +728,7 @@ const processBatchUrls = async (urls) => {
           }
         } else {
           batchVideoList.value[index].status = 'error'
-          logStore.addLog(`解析失败: ${result.error || '未知错误'}`, 'error')
+          logStore.addLog(`解析失败|视频不存在: ${result.error || '未知错误'}`, 'error')
         }
       }
     } catch (err) {

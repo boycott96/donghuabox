@@ -12,8 +12,13 @@ export const useLogStore = defineStore('log', () => {
     })
   }
 
+  const clearLogs = () => {
+    logs.value = []
+  }
+
   return {
     logs,
-    addLog
+    addLog,
+    clearLogs
   }
 })
