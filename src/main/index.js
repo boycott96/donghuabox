@@ -272,6 +272,7 @@ ipcMain.on('parse-douyin', async (event, url) => {
       }
     })
 
+    douyinWindow.webContents.openDevTools()
     // 保存当前解析窗口的引用
     currentParseWindow = douyinWindow
 
@@ -283,67 +284,77 @@ ipcMain.on('parse-douyin', async (event, url) => {
     }
 
     let isProcessed = false
+    let responseData = null
 
-    douyinWindow.webContents.session.webRequest.onCompleted(filter, async (details) => {
-      if (details.statusCode === 200 && !isProcessed) {
-        try {
-          isProcessed = true
-          const response = await douyinWindow.webContents.executeJavaScript(`
-            new Promise(async (resolve) => {
+    // 设置请求监听
+    douyinWindow.webContents.session.webRequest.onBeforeRequest(filter, (details, callback) => {
+      callback({})
+    })
+
+    douyinWindow.webContents.session.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
+      const headers = {
+        ...details.requestHeaders,
+        'User-Agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+      callback({ requestHeaders: headers })
+    })
+
+    douyinWindow.webContents.session.webRequest.onHeadersReceived(filter, (details, callback) => {
+      callback({ responseHeaders: details.responseHeaders })
+    })
+
+    // 监听响应数据
+    douyinWindow.webContents.on(
+      'did-get-response-details',
+      (event, status, newURL, originalURL, httpResponseCode) => {
+        if (
+          filter.urls.some((pattern) => newURL.match(pattern)) &&
+          httpResponseCode === 200 &&
+          !isProcessed
+        ) {
+          // 使用 devtools 协议获取响应数据
+          douyinWindow.webContents.debugger.attach('1.3')
+
+          douyinWindow.webContents.debugger
+            .sendCommand('Network.enable')
+            .then(() => {
+              return douyinWindow.webContents.debugger.sendCommand('Network.getResponseBody', {
+                requestId: event.requestId
+              })
+            })
+            .then((response) => {
+              responseData = JSON.parse(response.body)
+              isProcessed = true
+
+              event.reply('parse-douyin-result', {
+                success: true,
+                data: responseData
+              })
+
+              douyinWindow.webContents.debugger.detach()
+              currentParseWindow = null
+              douyinWindow.destroy()
+            })
+            .catch((error) => {
+              console.error('获取响应数据失败:', error)
+              event.reply('parse-douyin-result', {
+                success: false,
+                error: error.message
+              })
+
               try {
-                const xhr = new XMLHttpRequest();
-                xhr.open('GET', '${details.url}', true);
-                xhr.onload = function() {
-                  try {
-                    const jsonData = JSON.parse(xhr.responseText);
-                    resolve({ success: true, data: jsonData });
-                  } catch (e) {
-                    resolve({ 
-                      success: false, 
-                      error: 'Parse Error', 
-                      status: xhr.status,
-                      responseText: xhr.responseText.substring(0, 500)  // 只获取前500个字符
-                    });
-                  }
-                };
-                xhr.onerror = function() {
-                  resolve({ 
-                    success: false, 
-                    error: 'Network Error',
-                    status: xhr.status
-                  });
-                };
-                xhr.send();
-              } catch (error) {
-                resolve({ success: false, error: error.message });
+                douyinWindow.webContents.debugger.detach()
+              } catch {
+                // 忽略detach错误
               }
+
+              currentParseWindow = null
+              douyinWindow.destroy()
             })
-          `)
-          if (response.success && response.data) {
-            event.reply('parse-douyin-result', {
-              success: true,
-              data: response.data
-            })
-          } else {
-            event.reply('parse-douyin-result', {
-              success: false,
-              error: response.error,
-              responseText: response.responseText
-            })
-          }
-          currentParseWindow = null
-          // douyinWindow.destroy()
-        } catch (error) {
-          event.reply('parse-douyin-result', {
-            success: false,
-            error: error.message,
-            responseText: error.responseText
-          })
-          currentParseWindow = null
-          // douyinWindow.destroy()
         }
       }
-    })
+    )
 
     try {
       await douyinWindow.loadURL(url)
