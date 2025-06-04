@@ -2,7 +2,7 @@
   <div class="douyin">
     <!-- 切换模式的标签页 -->
     <a-tabs default-active-key="single">
-      <a-tab-pane key="single" title="单个解析">
+      <a-tab-pane key="single" class="pane" title="单个解析">
         <div class="search-container">
           <div class="input-wrapper">
             <input
@@ -30,94 +30,100 @@
           </button>
         </div>
 
-        <a-spin :loading="isLoading" class="loading-container">
-          <div v-if="videoInfo" class="video-info">
-            <!-- 作者信息区域 -->
-            <div class="author-info">
-              <img
-                :src="videoInfo.aweme_detail?.author?.avatar_thumb?.url_list[0]"
-                class="author-avatar"
-                alt="作者头像"
-              />
-              <div class="author-details">
-                <h3 class="author-name">{{ videoInfo.aweme_detail?.author?.nickname }}</h3>
-                <p class="author-signature">{{ videoInfo.aweme_detail?.author?.signature }}</p>
-              </div>
-            </div>
-
-            <!-- 视频信息区域 -->
-            <div class="video-details">
-              <div class="video-header">
-                <h2 class="video-title">{{ videoInfo.aweme_detail?.item_title || '抖音视频' }}</h2>
-                <div class="flex space-between">
-                  <div class="video-stats">
-                    <span>
-                      <icon-heart />
-                      {{ videoInfo.aweme_detail?.statistics?.digg_count || 0 }}
-                    </span>
-                    <span>
-                      <icon-message />
-                      {{ videoInfo.aweme_detail?.statistics?.comment_count || 0 }}
-                    </span>
-                    <span>
-                      <icon-star />
-                      {{ videoInfo.aweme_detail?.statistics?.collect_count || 0 }}
-                    </span>
-                    <span>
-                      <icon-share-alt />
-                      {{ videoInfo.aweme_detail?.statistics?.share_count || 0 }}
-                    </span>
-                  </div>
-                  <a-button type="primary" @click="downloadVideo">
-                    <template #icon><icon-download /></template>
-                    下载视频
-                  </a-button>
-                </div>
-              </div>
-
-              <div class="video-cover">
-                <img :src="videoInfo.aweme_detail?.video?.cover?.url_list[0]" alt="视频封面" />
-              </div>
-
-              <p class="video-desc">{{ videoInfo.aweme_detail?.desc }}</p>
-
-              <div v-if="videoInfo.aweme_detail?.text_extra?.length" class="video-tags">
-                <a-tag
-                  v-for="tag in videoInfo.aweme_detail?.text_extra"
-                  :key="tag.hashtag_name"
-                  color="arcoblue"
-                >
-                  #{{ tag.hashtag_name }}
-                </a-tag>
-              </div>
-
-              <div class="video-actions"></div>
+        <div v-if="videoInfo" class="video-info">
+          <!-- 作者信息区域 -->
+          <div class="author-info">
+            <img
+              :src="videoInfo.aweme_detail?.author?.avatar_thumb?.url_list[0]"
+              class="author-avatar"
+              alt="作者头像"
+            />
+            <div class="author-details">
+              <h3 class="author-name">{{ videoInfo.aweme_detail?.author?.nickname }}</h3>
+              <p class="author-signature">{{ videoInfo.aweme_detail?.author?.signature }}</p>
             </div>
           </div>
-        </a-spin>
+
+          <!-- 视频信息区域 -->
+          <div class="video-details">
+            <div class="video-header">
+              <h2 class="video-title">{{ videoInfo.aweme_detail?.item_title || '抖音视频' }}</h2>
+              <div class="flex space-between">
+                <div class="video-stats">
+                  <span>
+                    <icon-heart />
+                    {{ videoInfo.aweme_detail?.statistics?.digg_count || 0 }}
+                  </span>
+                  <span>
+                    <icon-message />
+                    {{ videoInfo.aweme_detail?.statistics?.comment_count || 0 }}
+                  </span>
+                  <span>
+                    <icon-star />
+                    {{ videoInfo.aweme_detail?.statistics?.collect_count || 0 }}
+                  </span>
+                  <span>
+                    <icon-share-alt />
+                    {{ videoInfo.aweme_detail?.statistics?.share_count || 0 }}
+                  </span>
+                </div>
+                <a-button type="primary" @click="downloadVideo">
+                  <template #icon><icon-download /></template>
+                  下载视频
+                </a-button>
+              </div>
+            </div>
+
+            <div class="video-cover">
+              <img :src="videoInfo.aweme_detail?.video?.cover?.url_list[0]" alt="视频封面" />
+            </div>
+
+            <p class="video-desc">{{ videoInfo.aweme_detail?.desc }}</p>
+
+            <div v-if="videoInfo.aweme_detail?.text_extra?.length" class="video-tags">
+              <a-tag
+                v-for="tag in videoInfo.aweme_detail?.text_extra"
+                :key="tag.hashtag_name"
+                color="arcoblue"
+              >
+                #{{ tag.hashtag_name }}
+              </a-tag>
+            </div>
+
+            <div class="video-actions"></div>
+          </div>
+        </div>
       </a-tab-pane>
 
-      <a-tab-pane key="batch" title="批量解析">
+      <a-tab-pane key="batch" class="pane" title="批量解析">
         <div class="batch-container">
           <div class="input-methods">
-            <a-tabs>
+            <a-tabs position="bottom">
               <a-tab-pane key="text" title="文本输入">
-                <a-textarea
-                  v-model="batchInputText"
-                  placeholder="请输入多个抖音视频链接，每行一个"
-                  :auto-size="{ minRows: 4, maxRows: 8 }"
-                />
+                <div class="textarea-wrapper">
+                  <a-textarea
+                    v-model="batchInputText"
+                    show-word-limit
+                    max-length="1000"
+                    placeholder="请输入多个抖音视频链接，每行一个"
+                    :auto-size="{ minRows: 7, maxRows: 7 }"
+                  />
+                </div>
               </a-tab-pane>
               <a-tab-pane key="excel" title="Excel导入">
                 <div class="excel-upload">
                   <div
                     class="upload-area"
+                    :class="{ 'drag-over': isDragOver }"
                     @click="triggerFileInput"
                     @drop.prevent="handleFileDrop"
                     @dragover.prevent
+                    @dragenter.prevent="isDragOver = true"
+                    @dragleave.prevent="isDragOver = false"
                   >
-                    <icon-upload />
-                    <p>点击或拖拽Excel文件到此处</p>
+                    <icon-upload class="icon-upload" />
+                    <p>点击或拖拽Excel文件到此处上传</p>
+                    <div class="upload-tips">支持的文件格式：.xlsx, .xls</div>
                     <input
                       ref="fileInput"
                       type="file"
@@ -170,7 +176,7 @@
               :row-selection="rowSelection"
             >
               <template #cover="{ record }">
-                <img :src="record.cover" class="video-cover-thumbnail" :alt="record.title" />
+                <img width="40px" :src="record.cover" :alt="record.title" />
               </template>
               <template #status="{ record }">
                 <a-tag :color="getStatusColor(record.status)">
@@ -365,6 +371,7 @@ const fileInput = ref(null)
 const excelColumns = ref([])
 const selectedColumn = ref('')
 const excelData = ref([])
+const isDragOver = ref(false)
 
 // 表格列定义
 const tableColumns = [
@@ -464,8 +471,7 @@ const parseVideo = async () => {
 // 监听API响应数据
 window.electron.ipcRenderer.on('parse-douyin-result', (event, data) => {
   clearInterval(progressInterval)
-  console.log('data', data)
-  logStore.addLog('成功获取抖音视频信息', 'info')
+  logStore.addLog('成功获取抖音视频信息' + JSON.stringify(data), 'info')
 
   if (data.success) {
     completeProgress()
@@ -961,506 +967,699 @@ const removeVideo = (video) => {
 }
 
 .douyin {
+  background: var(--color-bg-5);
+  height: calc(100% - 11px);
   display: flex;
   flex-direction: column;
-  height: 100%;
-  padding: 20px;
-  box-sizing: border-box;
-  background: var(--color-bg-1);
-
+  overflow: hidden;
   :deep(.arco-tabs) {
     height: 100%;
-
     .arco-tabs-content {
-      height: calc(100% - 46px);
-      padding: 16px 0;
+      padding-top: 0;
     }
-
-    .arco-tab-pane {
+    .arco-tabs-content,
+    .arco-tabs-content-list {
       height: 100%;
     }
   }
+  .pane {
+    height: calc(100% - 40px);
+    overflow: scroll;
+  }
+}
 
-  .search-container {
-    display: flex;
-    gap: 16px;
-    margin-bottom: 24px;
-    padding: 16px;
-    background: var(--color-bg-2);
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+.search-container {
+  flex-shrink: 0;
+  margin: 16px 20px;
+  padding: 16px;
+  background: var(--color-bg-2);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  gap: 20px;
 
-    .input-wrapper {
-      flex: 1;
-      position: relative;
+  .input-wrapper {
+    flex: 1;
+    position: relative;
 
-      .search-input {
-        width: 100%;
-        height: 42px;
-        border-radius: 8px;
-        padding: 0 40px 0 16px;
-        border: 1px solid var(--color-neutral-3);
-        transition: all 0.3s ease;
+    .search-input {
+      width: 100%;
+      height: 42px;
+      border-radius: 8px;
+      padding: 0 40px 0 16px;
+      border: 1px solid var(--color-neutral-3);
+      transition: all 0.3s ease;
 
-        &:focus {
-          border-color: rgb(var(--arcoblue-6));
-          box-shadow: 0 0 0 2px rgba(var(--arcoblue-6), 0.1);
-        }
-      }
-
-      .clear-icon {
-        position: absolute;
-        right: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        cursor: pointer;
-        color: var(--color-text-3);
-        transition: color 0.3s ease;
-
-        &:hover {
-          color: var(--color-text-1);
-        }
+      &:focus {
+        border-color: rgb(var(--arcoblue-6));
+        box-shadow: 0 0 0 2px rgba(var(--arcoblue-6), 0.1);
       }
     }
 
-    .search-btn {
-      min-width: 120px;
-      height: 42px;
-      border-radius: 8px;
-      background-color: rgb(var(--arcoblue-6));
-      border: none;
-      color: var(--color-white);
-      font-size: 14px;
-      font-weight: 500;
+    .clear-icon {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      justify-content: center;
-      transition: all 0.3s ease;
+      color: var(--color-text-3);
+      transition: color 0.3s ease;
 
       &:hover {
-        background-color: rgb(var(--arcoblue-7));
-      }
-
-      &:disabled {
-        opacity: 0.7;
-        cursor: not-allowed;
+        color: var(--color-text-1);
       }
     }
   }
 
-  .video-info {
+  .search-btn {
+    min-width: 120px;
+    height: 42px;
+    border-radius: 8px;
+    background-color: rgb(var(--arcoblue-6));
+    border: none;
+    color: var(--color-white);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+    transition: all 0.3s ease;
+
+    &:hover {
+      background-color: rgb(var(--arcoblue-7));
+    }
+
+    &:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.loading-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 20px 20px;
+  margin-top: -16px; // 抵消搜索框的margin
+
+  // 滚动条样式
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: var(--color-bg-2);
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-fill-3);
+    border-radius: 4px;
+    transition: all 0.3s ease;
+
+    &:hover {
+      background: var(--color-fill-4);
+    }
+  }
+}
+
+.video-info {
+  max-width: 500px;
+  margin: 0 auto;
+  margin-bottom: 20px;
+  background: var(--color-bg-2);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  }
+
+  .author-info {
+    display: flex;
+    padding: 24px 0 24px 32px;
+    border-bottom: 1px solid var(--color-neutral-3);
+    background: linear-gradient(to right, var(--color-bg-2), var(--color-fill-1));
+
+    .author-avatar {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid var(--color-bg-2);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      transition: transform 0.3s ease;
+
+      &:hover {
+        transform: scale(1.05);
+      }
+    }
+
+    .author-details {
+      margin-left: 20px;
+      flex: 1;
+
+      .author-name {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--color-text-1);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        &::after {
+          content: '✓';
+          display: inline-block;
+          font-size: 14px;
+          color: #fff;
+          background: rgb(var(--arcoblue-6));
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          text-align: center;
+          line-height: 18px;
+        }
+      }
+
+      .author-signature {
+        margin: 8px 0 0;
+        font-size: 14px;
+        color: var(--color-text-3);
+        line-height: 1.6;
+        max-width: 80%;
+      }
+    }
+  }
+
+  .video-details {
+    padding: 16px;
+
+    .video-header {
+      margin-bottom: 24px;
+
+      .video-title {
+        margin: 0 0 20px;
+        font-size: 22px;
+        font-weight: 600;
+        color: var(--color-text-1);
+        text-align: center;
+        line-height: 1.4;
+      }
+
+      .flex {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-radius: 12px;
+      }
+
+      .video-stats {
+        display: flex;
+        gap: 10px;
+        color: var(--color-text-2);
+
+        span {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 14px;
+          padding: 6px 12px;
+          border-radius: 20px;
+          background: var(--color-fill-2);
+          transition: all 0.3s ease;
+
+          .arco-icon {
+            font-size: 16px;
+            color: rgb(var(--arcoblue-6));
+          }
+        }
+      }
+    }
+
+    .video-cover {
+      margin: 0 -32px;
+      position: relative;
+      padding-top: 56.25%;
+      background: var(--color-fill-1);
+      overflow: hidden;
+
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 100px;
+        background: linear-gradient(to bottom, rgba(0, 0, 0, 0.2), transparent);
+        z-index: 1;
+      }
+
+      img {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.5s ease;
+
+        &:hover {
+          transform: scale(1.02);
+        }
+      }
+    }
+
+    .video-desc {
+      margin: 24px 0;
+      font-size: 15px;
+      line-height: 1.8;
+      color: var(--color-text-2);
+      padding: 0 24px;
+      text-align: center;
+      position: relative;
+
+      &::before,
+      &::after {
+        content: '"';
+        position: absolute;
+        font-size: 48px;
+        color: var(--color-fill-3);
+        font-family: serif;
+        height: 20px;
+        line-height: 1;
+      }
+
+      &::before {
+        left: 0;
+        top: -20px;
+      }
+
+      &::after {
+        right: 0;
+        bottom: -40px;
+        transform: rotate(180deg);
+      }
+    }
+
+    .video-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      padding: 0 24px;
+      margin-top: 32px;
+
+      :deep(.arco-tag) {
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: 13px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(var(--arcoblue-6), 0.2);
+        }
+      }
+    }
+  }
+}
+
+.batch-container {
+  height: 100%;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  .input-methods {
+    flex-shrink: 0;
+  }
+
+  .textarea-wrapper {
+    padding: 16px;
+  }
+
+  .batch-actions {
+    flex-shrink: 0;
+  }
+
+  .batch-table {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     background: var(--color-bg-2);
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     overflow: hidden;
 
-    .author-info {
-      display: flex;
-      align-items: center;
-      padding: 20px;
-      border-bottom: 1px solid var(--color-neutral-3);
-
-      .author-avatar {
-        width: 56px;
-        height: 56px;
-        border-radius: 50%;
-        object-fit: cover;
-      }
-
-      .author-details {
-        margin-left: 16px;
-        flex: 1;
-
-        .author-name {
-          margin: 0;
-          font-size: 16px;
-          font-weight: 600;
-          color: var(--color-text-1);
-        }
-
-        .author-signature {
-          margin: 4px 0 0;
-          font-size: 14px;
-          color: var(--color-text-3);
-        }
-      }
+    :deep(.arco-table) {
+      height: 100%;
     }
 
-    .video-details {
-      padding: 20px;
-
-      .video-header {
-        margin-bottom: 20px;
-
-        .video-title {
-          margin: 0 0 16px;
-          font-size: 18px;
-          color: var(--color-text-1);
-        }
-
-        .flex {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .video-stats {
-          display: flex;
-          gap: 20px;
-          color: var(--color-text-3);
-
-          span {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 14px;
-          }
-        }
-      }
-
-      .video-cover {
-        margin: 0 -20px;
-        position: relative;
-        padding-top: 56.25%; // 16:9 比例
-
-        img {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-      }
-
-      .video-desc {
-        margin: 20px 0;
-        font-size: 14px;
-        line-height: 1.6;
-        color: var(--color-text-2);
-      }
-
-      .video-tags {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-    }
-  }
-
-  .batch-container {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-
-    .input-methods {
-      background: var(--color-bg-2);
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-      overflow: hidden;
-
-      :deep(.arco-tabs-content) {
-        padding: 20px;
-      }
-
-      .arco-textarea {
-        width: 100%;
-        border-radius: 4px;
-        resize: none;
-      }
-
-      .excel-upload {
-        .upload-area {
-          border: 2px dashed var(--color-neutral-3);
-          border-radius: 8px;
-          padding: 32px;
-          text-align: center;
-          cursor: pointer;
-          transition: all 0.3s ease;
-
-          &:hover {
-            border-color: rgb(var(--arcoblue-6));
-            background: var(--color-fill-1);
-          }
-
-          .arco-icon {
-            font-size: 40px;
-            color: var(--color-text-3);
-            margin-bottom: 12px;
-          }
-
-          p {
-            color: var(--color-text-3);
-            margin: 0;
-          }
-        }
-
-        .column-select {
-          margin-top: 20px;
-          text-align: center;
-
-          p {
-            margin-bottom: 12px;
-            color: var(--color-text-2);
-          }
-
-          .arco-select {
-            width: 240px;
-          }
-        }
-      }
+    :deep(.arco-table-container) {
+      height: 100%;
     }
 
-    .batch-actions {
-      padding: 16px;
-      background: var(--color-bg-2);
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-      display: flex;
-      justify-content: flex-end;
-      gap: 12px;
-    }
-
-    .batch-table {
-      flex: 1;
-      background: var(--color-bg-2);
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-      overflow: hidden;
-
-      :deep(.arco-table) {
-        .arco-table-th {
-          background: var(--color-fill-1);
-        }
-
-        .video-cover-thumbnail {
-          width: 120px;
-          height: 68px;
-          object-fit: cover;
-          border-radius: 4px;
-        }
-
-        .arco-table-td {
-          vertical-align: middle;
-        }
-      }
-    }
-  }
-
-  .progress-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(4px);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-
-    .progress-container {
-      background: var(--color-bg-2);
-      padding: 32px;
-      border-radius: 12px;
-      width: 420px;
-      text-align: center;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-
-      .progress-icon,
-      .icon {
-        font-size: 48px;
-        color: rgb(var(--arcoblue-6));
-        margin-bottom: 20px;
-      }
-
-      .progress-icon {
-        animation: spin 1s linear infinite;
-      }
-
-      .progress-text {
-        font-size: 18px;
-        margin-bottom: 24px;
-        color: var(--color-text-1);
-      }
-
-      .progress-bar {
-        height: 8px;
-        background: var(--color-fill-2);
-        border-radius: 4px;
-        overflow: hidden;
-        margin-bottom: 16px;
-
-        .progress-inner {
-          height: 100%;
-          background: rgb(var(--arcoblue-6));
-          transition: width 0.3s ease;
-        }
-      }
-
-      .progress-status {
-        font-size: 14px;
-        color: var(--color-text-3);
-        margin-bottom: 24px;
-      }
-
-      .progress-actions {
-        display: flex;
-        justify-content: center;
-        gap: 12px;
-
-        .arco-btn {
-          min-width: 120px;
-          height: 36px;
-        }
-      }
-
-      .download-info {
-        margin: 20px 0;
-        font-size: 14px;
-        color: var(--color-text-2);
-
-        .speed,
-        .remaining,
-        .size {
-          margin: 8px 0;
-        }
-      }
-
-      .complete-info,
-      .error-info {
-        margin: 20px 0;
-        padding: 0 24px;
-
-        p {
-          font-size: 14px;
-          word-break: break-all;
-          margin: 0;
-        }
-      }
-
-      .complete-info p {
-        color: var(--color-text-2);
-      }
-
-      .error-info p {
-        color: rgb(var(--red-6));
-      }
-    }
-  }
-
-  .batch-progress {
-    width: 600px !important;
-    max-height: 80vh;
-    display: flex;
-    flex-direction: column;
-
-    .progress-header {
-      text-align: center;
-      margin-bottom: 24px;
-
-      .icon {
-        font-size: 48px;
-        color: rgb(var(--arcoblue-6));
-        margin-bottom: 16px;
-      }
-
-      .progress-text {
-        font-size: 20px;
-        color: var(--color-text-1);
-      }
-
-      .progress-summary {
-        font-size: 14px;
-        color: var(--color-text-3);
-      }
-    }
-
-    .download-list {
-      flex: 1;
+    :deep(.arco-table-body) {
       overflow-y: auto;
-      margin: 0 -32px;
-      padding: 0 32px;
+    }
+  }
+}
 
-      .download-item {
-        background: var(--color-fill-1);
-        border-radius: 8px;
-        padding: 16px;
-        margin-bottom: 12px;
+.progress-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
 
-        .item-info {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          margin-bottom: 12px;
+  .progress-container {
+    background: var(--color-bg-2);
+    padding: 32px;
+    border-radius: 12px;
+    width: 420px;
+    text-align: center;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 
-          .item-cover {
-            width: 80px;
-            height: 45px;
-            border-radius: 4px;
-            object-fit: cover;
-          }
+    .progress-icon,
+    .icon {
+      font-size: 48px;
+      color: rgb(var(--arcoblue-6));
+      margin-bottom: 20px;
+    }
 
-          .item-details {
-            flex: 1;
-            min-width: 0;
+    .progress-icon {
+      animation: spin 1s linear infinite;
+    }
 
-            .item-title {
-              font-size: 14px;
-              color: var(--color-text-1);
-              margin-bottom: 4px;
-              @include text-ellipsis;
-            }
+    .progress-text {
+      font-size: 18px;
+      margin-bottom: 24px;
+      color: var(--color-text-1);
+    }
 
-            .item-author {
-              font-size: 13px;
-              color: var(--color-text-3);
-            }
-          }
+    .progress-bar {
+      height: 8px;
+      background: var(--color-fill-2);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 16px;
 
-          .item-status {
-            font-size: 13px;
-            color: var(--color-text-2);
-            display: flex;
-            align-items: center;
-            gap: 4px;
-          }
-        }
-
-        .item-progress {
-          .progress-bar {
-            height: 4px;
-            background: var(--color-fill-3);
-            border-radius: 2px;
-            overflow: hidden;
-            margin-bottom: 8px;
-
-            .progress-inner {
-              height: 100%;
-              background: rgb(var(--arcoblue-6));
-              transition: width 0.3s ease;
-            }
-          }
-
-          .progress-info {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            color: var(--color-text-3);
-          }
-        }
+      .progress-inner {
+        height: 100%;
+        background: rgb(var(--arcoblue-6));
+        transition: width 0.3s ease;
       }
+    }
+
+    .progress-status {
+      font-size: 14px;
+      color: var(--color-text-3);
+      margin-bottom: 24px;
     }
 
     .progress-actions {
-      margin-top: 24px;
       display: flex;
       justify-content: center;
       gap: 12px;
+
+      .arco-btn {
+        min-width: 120px;
+        height: 36px;
+      }
+    }
+
+    .download-info {
+      margin: 20px 0;
+      font-size: 14px;
+      color: var(--color-text-2);
+
+      .speed,
+      .remaining,
+      .size {
+        margin: 8px 0;
+      }
+    }
+
+    .complete-info,
+    .error-info {
+      margin: 20px 0;
+      padding: 0 24px;
+
+      p {
+        font-size: 14px;
+        word-break: break-all;
+        margin: 0;
+      }
+    }
+
+    .complete-info p {
+      color: var(--color-text-2);
+    }
+
+    .error-info p {
+      color: rgb(var(--red-6));
+    }
+  }
+}
+
+.batch-progress {
+  width: 600px !important;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+
+  .progress-header {
+    text-align: center;
+    margin-bottom: 24px;
+
+    .icon {
+      font-size: 48px;
+      color: rgb(var(--arcoblue-6));
+      margin-bottom: 16px;
+    }
+
+    .progress-text {
+      font-size: 20px;
+      color: var(--color-text-1);
+    }
+
+    .progress-summary {
+      font-size: 14px;
+      color: var(--color-text-3);
+    }
+  }
+
+  .download-list {
+    flex: 1;
+    overflow-y: auto;
+    margin: 0 -32px;
+    padding: 0 32px;
+
+    &::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: var(--color-bg-2);
+      border-radius: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--color-fill-3);
+      border-radius: 4px;
+      transition: all 0.3s ease;
+
+      &:hover {
+        background: var(--color-fill-4);
+      }
+    }
+
+    .download-item {
+      background: var(--color-fill-1);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+
+      .item-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+
+        .item-cover {
+          width: 80px;
+          height: 45px;
+          border-radius: 4px;
+          object-fit: cover;
+        }
+
+        .item-details {
+          flex: 1;
+          min-width: 0;
+
+          .item-title {
+            font-size: 14px;
+            color: var(--color-text-1);
+            margin-bottom: 4px;
+            @include text-ellipsis;
+          }
+
+          .item-author {
+            font-size: 13px;
+            color: var(--color-text-3);
+          }
+        }
+
+        .item-status {
+          font-size: 13px;
+          color: var(--color-text-2);
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+      }
+
+      .item-progress {
+        .progress-bar {
+          height: 4px;
+          background: var(--color-fill-3);
+          border-radius: 2px;
+          overflow: hidden;
+          margin-bottom: 8px;
+
+          .progress-inner {
+            height: 100%;
+            background: rgb(var(--arcoblue-6));
+            transition: width 0.3s ease;
+          }
+        }
+
+        .progress-info {
+          display: flex;
+          justify-content: space-between;
+          font-size: 12px;
+          color: var(--color-text-3);
+        }
+      }
+    }
+  }
+
+  .progress-actions {
+    margin-top: 24px;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+  }
+}
+
+.excel-upload {
+  padding: 16px;
+
+  .upload-area {
+    border: 2px dashed var(--color-neutral-3);
+    border-radius: 12px;
+    padding: 32px;
+    text-align: center;
+    background: var(--color-fill-1);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--color-primary-light-1);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+    }
+
+    &:hover {
+      border-color: rgb(var(--arcoblue-6));
+      background: var(--color-fill-2);
+
+      &::before {
+        opacity: 0.05;
+      }
+
+      .icon-upload {
+        transform: translateY(-5px);
+        color: rgb(var(--arcoblue-6));
+      }
+    }
+
+    &.drag-over {
+      border-color: rgb(var(--arcoblue-6));
+      background: var(--color-fill-2);
+
+      &::before {
+        opacity: 0.1;
+      }
+
+      .icon-upload {
+        transform: scale(1.1);
+        color: rgb(var(--arcoblue-6));
+      }
+    }
+
+    .icon-upload {
+      font-size: 48px;
+      color: var(--color-text-3);
+      transition: all 0.3s ease;
+    }
+
+    p {
+      margin: 0;
+      color: var(--color-text-2);
+      font-size: 14px;
+    }
+
+    .upload-tips {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--color-text-3);
+    }
+  }
+
+  .column-select {
+    margin-top: 24px;
+    padding: 16px;
+    background: var(--color-fill-1);
+    border-radius: 8px;
+
+    p {
+      margin: 0 0 12px;
+      color: var(--color-text-2);
+      font-size: 14px;
+    }
+
+    :deep(.arco-select) {
+      width: 100%;
     }
   }
 }

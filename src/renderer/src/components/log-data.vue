@@ -18,13 +18,26 @@
       </div>
     </div>
     <div ref="logContentRef" class="log-content">
-      <div v-for="(log, index) in logStore.logs" :key="index" class="log-item" :class="log.type">
+      <div
+        v-for="(log, index) in logStore.logs"
+        :key="index"
+        class="log-item"
+        :class="[log.type, { expanded: expandedLogs[index] }]"
+      >
         <template v-if="collapsed">
           <span class="log-index">#{{ index + 1 }}</span>
         </template>
         <template v-else>
           <span class="log-time">{{ formatTime(log.timestamp) }}</span>
           <span class="log-message">{{ log.message }}</span>
+          <a-button
+            v-if="isMessageOverflow(index)"
+            class="expand-button"
+            size="mini"
+            @click="toggleExpand(index)"
+          >
+            {{ expandedLogs[index] ? '收起' : '展开' }}
+          </a-button>
         </template>
       </div>
     </div>
@@ -45,6 +58,7 @@ defineProps({
 const logStore = useLogStore()
 const logContentRef = ref(null)
 const autoScroll = ref(true)
+const expandedLogs = ref({})
 
 const formatTime = (timestamp) => {
   const date = new Date(timestamp)
@@ -77,6 +91,27 @@ const scrollToBottom = async () => {
   if (logContentRef.value && autoScroll.value) {
     logContentRef.value.scrollTop = logContentRef.value.scrollHeight
   }
+}
+
+const isMessageOverflow = (index) => {
+  const message = logStore.logs[index]?.message
+  if (!message) return false
+
+  const tempDiv = document.createElement('div')
+  tempDiv.style.visibility = 'hidden'
+  tempDiv.style.position = 'absolute'
+  tempDiv.style.whiteSpace = 'nowrap'
+  tempDiv.innerText = message
+  document.body.appendChild(tempDiv)
+
+  const isOverflow = tempDiv.offsetWidth > 300 // 根据实际宽度调整
+  document.body.removeChild(tempDiv)
+
+  return isOverflow
+}
+
+const toggleExpand = (index) => {
+  expandedLogs.value[index] = !expandedLogs.value[index]
 }
 
 // 组件挂载时也执行滚动
@@ -136,9 +171,11 @@ watch(() => logStore.logs.length, scrollToBottom)
   margin: 2px 0;
   border-radius: 4px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   width: 100%;
+  position: relative;
+
   &.info {
     color: #888;
   }
@@ -152,7 +189,7 @@ watch(() => logStore.logs.length, scrollToBottom)
   }
 
   .log-time {
-    flex-shrink: 0; // 防止时间部分被压缩
+    flex-shrink: 0;
   }
 
   .log-message {
@@ -160,7 +197,24 @@ watch(() => logStore.logs.length, scrollToBottom)
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    min-width: 0; // 确保 flex 子项可以正确收缩
+    min-width: 0;
+  }
+
+  &.expanded {
+    .log-message {
+      white-space: normal;
+      word-break: break-all;
+    }
+  }
+
+  .expand-button {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 0 4px;
+    font-size: 12px;
+    background: var(--color-bg-2);
   }
 
   .log-index {

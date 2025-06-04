@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, net } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -34,7 +34,7 @@ function createWindow() {
     mainWindow.show()
   })
 
-  mainWindow.webContents.openDevTools()
+  // mainWindow.webContents.openDevTools()
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
@@ -256,123 +256,109 @@ ipcMain.on('start-download', async (event, { url, filePath }) => {
 // 处理抖音链接解析
 ipcMain.on('parse-douyin', async (event, url) => {
   try {
-    // 如果有正在进行的解析，先关闭它
     if (currentParseWindow) {
       currentParseWindow.destroy()
     }
 
-    const douyinWindow = new BrowserWindow({
+    const win = new BrowserWindow({
       width: 800,
       height: 600,
-      show: true,
+      show: false,
       webPreferences: {
+        partition: 'persist:douyin',
         nodeIntegration: false,
         contextIsolation: true,
-        webSecurity: true
+        webSecurity: false
       }
     })
-
-    douyinWindow.webContents.openDevTools()
-    // 保存当前解析窗口的引用
-    currentParseWindow = douyinWindow
-
-    const filter = {
-      urls: [
-        'https://www.douyin.com/aweme/v1/web/aweme/detail/*',
-        'https://*.douyin.com/aweme/v1/web/aweme/detail/*'
-      ]
-    }
+    currentParseWindow = win
 
     let isProcessed = false
-    let responseData = null
 
-    // 设置请求监听
-    douyinWindow.webContents.session.webRequest.onBeforeRequest(filter, (details, callback) => {
-      callback({})
-    })
+    // 监听目标请求
+    win.webContents.session.webRequest.onBeforeSendHeaders(
+      { urls: ['*://*.douyin.com/*'] },
+      (details, callback) => {
+        if (!isProcessed && details.url.includes('/aweme/v1/web/aweme/detail/')) {
+          isProcessed = true
 
-    douyinWindow.webContents.session.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
-      const headers = {
-        ...details.requestHeaders,
-        'User-Agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      }
-      callback({ requestHeaders: headers })
-    })
-
-    douyinWindow.webContents.session.webRequest.onHeadersReceived(filter, (details, callback) => {
-      callback({ responseHeaders: details.responseHeaders })
-    })
-
-    // 监听响应数据
-    douyinWindow.webContents.on(
-      'did-get-response-details',
-      (event, status, newURL, originalURL, httpResponseCode) => {
-        if (
-          filter.urls.some((pattern) => newURL.match(pattern)) &&
-          httpResponseCode === 200 &&
-          !isProcessed
-        ) {
-          // 使用 devtools 协议获取响应数据
-          douyinWindow.webContents.debugger.attach('1.3')
-
-          douyinWindow.webContents.debugger
-            .sendCommand('Network.enable')
-            .then(() => {
-              return douyinWindow.webContents.debugger.sendCommand('Network.getResponseBody', {
-                requestId: event.requestId
-              })
-            })
-            .then((response) => {
-              responseData = JSON.parse(response.body)
-              isProcessed = true
-
-              event.reply('parse-douyin-result', {
-                success: true,
-                data: responseData
-              })
-
-              douyinWindow.webContents.debugger.detach()
-              currentParseWindow = null
-              douyinWindow.destroy()
-            })
-            .catch((error) => {
-              console.error('获取响应数据失败:', error)
-              event.reply('parse-douyin-result', {
-                success: false,
-                error: error.message
-              })
-
+          // 复刻请求
+          const allowedHeaders = [
+            'user-agent',
+            'referer',
+            'cookie',
+            'accept',
+            'accept-language',
+            'x-bogus',
+            'msToken'
+          ]
+          const request = net.request({ method: details.method, url: details.url })
+          Object.entries(details.requestHeaders).forEach(([k, v]) => {
+            if (allowedHeaders.includes(k.toLowerCase())) {
               try {
-                douyinWindow.webContents.debugger.detach()
-              } catch {
-                // 忽略detach错误
+                request.setHeader(k, v)
+              } catch (e) {
+                console.warn('设置header失败:', k, v, e.message)
               }
-
-              currentParseWindow = null
-              douyinWindow.destroy()
+            }
+          })
+          let raw = ''
+          request.on('response', (res) => {
+            res.on('data', (chunk) => (raw += chunk))
+            res.on('end', () => {
+              try {
+                const data = JSON.parse(raw)
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                  mainWindow.webContents.send('parse-douyin-result', {
+                    success: true,
+                    data: data
+                  })
+                }
+              } catch (err) {
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                  mainWindow.webContents.send('parse-douyin-result', {
+                    success: false,
+                    error: 'JSON解析失败: ' + err.message,
+                    raw: raw
+                  })
+                }
+              }
+              // 关闭窗口
+              if (currentParseWindow) {
+                currentParseWindow.destroy()
+                currentParseWindow = null
+              }
             })
+          })
+          request.on('error', (err) => {
+            console.error('复刻请求失败:', err)
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('parse-douyin-result', {
+                success: false,
+                error: '复刻请求失败: ' + err.message
+              })
+            }
+            if (currentParseWindow) {
+              currentParseWindow.destroy()
+              currentParseWindow = null
+            }
+          })
+          request.end()
         }
+        callback({ requestHeaders: details.requestHeaders })
       }
     )
 
-    try {
-      await douyinWindow.loadURL(url)
-    } catch (error) {
-      event.reply('parse-douyin-result', {
-        success: false,
-        error: error.message,
-        responseText: error.responseText
-      })
-      currentParseWindow = null
-      // douyinWindow.destroy()
-    }
+    // 加载页面
+    await win.loadURL(url)
   } catch (error) {
-    event.reply('parse-douyin-result', {
-      success: false,
-      error: error.message,
-      responseText: error.responseText
-    })
+    console.error('初始化失败:', error)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('parse-douyin-result', {
+        success: false,
+        error: `初始化失败: ${error.message}`
+      })
+    }
     if (currentParseWindow) {
       currentParseWindow.destroy()
       currentParseWindow = null
