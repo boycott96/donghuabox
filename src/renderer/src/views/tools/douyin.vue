@@ -508,24 +508,20 @@ const cancelDownload = () => {
   logStore.addLog('用户取消了视频下载', 'warning')
 }
 
-// 下载视频
-const downloadVideo = async () => {
-  const playUrl = videoInfo.value?.aweme_detail?.video?.play_addr?.url_list[0]
-  if (!playUrl) {
-    Message.error('没有可下载的视频')
-    logStore.addLog('下载失败: 没有可用的视频链接', 'error')
-    return
-  }
+// 添加一个生成唯一文件名的函数
+const generateUniqueFileName = (video) => {
+  const timestamp = new Date().getTime()
+  const randomStr = Math.random().toString(36).substring(2, 8) // 生成6位随机字符
+  const safeTitle = (video.title || '抖音视频').replace(/[\\/:*?"<>|]/g, '_') // 替换不安全的文件名字符
+  const safeAuthor = video.author.replace(/[\\/:*?"<>|]/g, '_')
+  return `${safeTitle}__${safeAuthor}_${timestamp}_${randomStr}.mp4`
+}
 
-  // 生成文件名：标题_作者_时间戳.mp4
-  const fileName = `${videoInfo.value.aweme_detail.item_title || '抖音视频'}_${
-    videoInfo.value.aweme_detail.author.nickname
-  }_${new Date().getTime()}.mp4`
-
-  logStore.addLog('准备下载视频...', 'info')
+// 修改下载函数中的文件名生成逻辑
+const downloadVideo = (video) => {
   window.electron.ipcRenderer.send('prepare-download', {
-    url: playUrl,
-    filename: fileName
+    url: video.playUrl,
+    filename: generateUniqueFileName(video)
   })
 }
 
@@ -725,7 +721,7 @@ const processBatchUrls = async (urls) => {
           batchVideoList.value[index] = {
             id: videoId,
             url: url,
-            title: videoData.item_title || '无标题',
+            title: videoData.item_title || videoData.desc,
             author: videoData.author.nickname,
             cover: videoData.video.cover.url_list[0],
             diggCount: videoData.statistics.digg_count,
@@ -779,7 +775,7 @@ const downloadSingle = (video) => {
 
   window.electron.ipcRenderer.send('prepare-download', {
     url: video.playUrl,
-    filename: `${video.title || '抖音视频'}_${new Date().getTime()}.mp4`
+    filename: generateUniqueFileName(video)
   })
 }
 
@@ -922,7 +918,7 @@ const batchDownload = async () => {
       speed: '0 KB/s',
       error: null,
       // 修改文件名格式：标题_作者_时间戳.mp4
-      savePath: `${saveResult.filePath}/${video.title || '抖音视频'}_${video.author}_${new Date().getTime()}.mp4`
+      filename: generateUniqueFileName(video)
     }))
 
     isBatchDownloading.value = true
@@ -933,7 +929,7 @@ const batchDownload = async () => {
       if (downloadItem) {
         downloadItem.status = 'downloading'
         try {
-          await downloadSingleInBatch(video, downloadItem.savePath)
+          await downloadSingleInBatch(video, `${saveResult.filePath}/${downloadItem.filename}`)
           // 添加一个小延迟，确保状态更新和事件清理完成
           await new Promise((resolve) => setTimeout(resolve, 500))
         } catch (err) {
