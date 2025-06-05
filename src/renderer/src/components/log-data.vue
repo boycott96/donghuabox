@@ -23,6 +23,7 @@
         :key="index"
         class="log-item"
         :class="[log.type, { expanded: expandedLogs[index] }]"
+        @dblclick="toggleExpand(index)"
       >
         <template v-if="collapsed">
           <span class="log-index">#{{ index + 1 }}</span>
@@ -34,8 +35,12 @@
             v-if="isMessageOverflow(index)"
             class="expand-button"
             size="mini"
-            @click="toggleExpand(index)"
+            type="text"
+            @click.stop="toggleExpand(index)"
           >
+            <template #icon>
+              <svg-icon :name="expandedLogs[index] ? 'up' : 'down'" />
+            </template>
             {{ expandedLogs[index] ? '收起' : '展开' }}
           </a-button>
         </template>
@@ -167,7 +172,7 @@ watch(() => logStore.logs.length, scrollToBottom)
 }
 
 .log-item {
-  padding: 2px;
+  padding: 2px 8px;
   margin: 2px 0;
   border-radius: 4px;
   display: flex;
@@ -175,6 +180,15 @@ watch(() => logStore.logs.length, scrollToBottom)
   gap: 10px;
   width: 100%;
   position: relative;
+  transition: all 0.2s ease;
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--color-fill-2);
+    .expand-button {
+      opacity: 1;
+    }
+  }
 
   &.info {
     color: #888;
@@ -205,16 +219,33 @@ watch(() => logStore.logs.length, scrollToBottom)
       white-space: normal;
       word-break: break-all;
     }
+    background-color: var(--color-fill-2);
+    padding: 8px;
   }
 
   .expand-button {
     position: absolute;
-    right: 0;
+    right: 4px;
     top: 50%;
     transform: translateY(-50%);
-    padding: 0 4px;
+    padding: 2px 8px;
     font-size: 12px;
-    background: var(--color-bg-2);
+    opacity: 0;
+    transition: all 0.2s ease;
+    color: var(--color-text-2);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    &:hover {
+      color: var(--color-text-1);
+      background-color: var(--color-fill-3);
+    }
+
+    :deep(.svg-icon) {
+      width: 12px;
+      height: 12px;
+    }
   }
 
   .log-index {

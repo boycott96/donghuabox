@@ -32,3 +32,30 @@ export const formatTime = (seconds) => {
 
   return `${hours} 时 ${remainingMinutes} 分 ${remainingSeconds} 秒`
 }
+
+/**
+ * 格式化数字为带单位的简短格式
+ * @param {number} num - 要格式化的数字
+ * @returns {string} - 格式化后的字符串
+ */
+export const formatNumber = (num) => {
+  if (num === null || num === undefined) return '0'
+  
+  const units = ['', 'w', 'w', '亿']
+  const digit = 2
+  let i = 0
+  
+  // 处理万以下的数字
+  if (num < 10000) {
+    return num.toString()
+  }
+  
+  // 处理万以上的数字
+  while (num >= 10000 && i < units.length - 1) {
+    num = num / 10000
+    i++
+  }
+  
+  // 保留指定位数的小数
+  return num.toFixed(digit).replace(/\.?0+$/, '') + units[i]
+}

@@ -14,20 +14,22 @@
             />
             <icon-close v-if="inputText" class="clear-icon" @click="inputText = ''" />
           </div>
-          <button
-            class="search-btn"
-            :disabled="isLoading"
-            @click="isLoading ? cancelParse() : parseVideo()"
-          >
-            <template v-if="!isLoading">
-              <icon-search />
-              解析视频
-            </template>
-            <template v-else>
-              <icon-loading />
-              点击取消解析
-            </template>
-          </button>
+          <a-space>
+            <button
+              class="search-btn"
+              :disabled="isLoading"
+              @click="isLoading ? cancelParse() : parseVideo()"
+            >
+              <template v-if="!isLoading">
+                <icon-search />
+                解析视频
+              </template>
+              <template v-else>
+                <icon-loading />
+                点击取消解析
+              </template>
+            </button>
+          </a-space>
         </div>
 
         <div v-if="videoInfo" class="video-info">
@@ -52,24 +54,24 @@
                 <div class="video-stats">
                   <span>
                     <icon-heart />
-                    {{ videoInfo.aweme_detail?.statistics?.digg_count || 0 }}
+                    {{ formatNumber(videoInfo.aweme_detail?.statistics?.digg_count || 0) }}
                   </span>
                   <span>
                     <icon-message />
-                    {{ videoInfo.aweme_detail?.statistics?.comment_count || 0 }}
+                    {{ formatNumber(videoInfo.aweme_detail?.statistics?.comment_count || 0) }}
                   </span>
                   <span>
                     <icon-star />
-                    {{ videoInfo.aweme_detail?.statistics?.collect_count || 0 }}
+                    {{ formatNumber(videoInfo.aweme_detail?.statistics?.collect_count || 0) }}
                   </span>
                   <span>
                     <icon-share-alt />
-                    {{ videoInfo.aweme_detail?.statistics?.share_count || 0 }}
+                    {{ formatNumber(videoInfo.aweme_detail?.statistics?.share_count || 0) }}
                   </span>
                 </div>
-                <a-button type="primary" @click="downloadVideo">
-                  <template #icon><icon-download /></template>
-                  下载视频
+                <a-button shape="round" @click="downloadVideo">
+                  <template #icon><svg-icon name="download" /></template>
+                  下载
                 </a-button>
               </div>
             </div>
@@ -104,7 +106,7 @@
                   <a-textarea
                     v-model="batchInputText"
                     show-word-limit
-                    max-length="1000"
+                    :max-length="1000"
                     placeholder="请输入多个抖音视频链接，每行一个"
                     :auto-size="{ minRows: 7, maxRows: 7 }"
                   />
@@ -261,10 +263,12 @@
         </div>
         <div class="progress-actions">
           <template v-if="downloadStatus === 'downloading'">
-            <a-button status="danger" @click="cancelDownload">
-              <template #icon><icon-close /></template>
-              取消下载
-            </a-button>
+            <a-space>
+              <a-button status="danger" @click="cancelDownload">
+                <template #icon><icon-close /></template>
+                取消下载
+              </a-button>
+            </a-space>
           </template>
           <template v-else>
             <a-button type="primary" @click="closeDownloadDialog">
@@ -325,6 +329,7 @@
         </div>
 
         <div class="progress-actions">
+          <!-- 这里需要加一个在后台下载的功能，也可以通过按钮打开下载详情 -->
           <a-button v-if="hasWaitingDownloads" status="danger" @click="cancelBatchDownload">
             <template #icon><icon-close /></template>
             取消下载
@@ -343,7 +348,7 @@
 import { ref, computed, reactive } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import { useLogStore } from '../../stores/log'
-import { formatBytes, formatTime } from '../../utils/format'
+import { formatBytes, formatTime, formatNumber } from '../../utils/format'
 import * as XLSX from 'xlsx'
 
 const inputText = ref('')
@@ -518,7 +523,19 @@ const generateUniqueFileName = (video) => {
 }
 
 // 修改下载函数中的文件名生成逻辑
-const downloadVideo = (video) => {
+const downloadVideo = () => {
+  if (!videoInfo.value?.aweme_detail) {
+    Message.error('视频信息不完整')
+    return
+  }
+
+  const video = {
+    title:
+      videoInfo.value.aweme_detail.item_title || videoInfo.value.aweme_detail.desc || '抖音视频',
+    author: videoInfo.value.aweme_detail.author.nickname || '未知作者',
+    playUrl: videoInfo.value.aweme_detail.video.play_addr.url_list[0]
+  }
+
   window.electron.ipcRenderer.send('prepare-download', {
     url: video.playUrl,
     filename: generateUniqueFileName(video)
@@ -1086,7 +1103,7 @@ const removeVideo = (video) => {
 }
 
 .video-info {
-  max-width: 500px;
+  max-width: 650px;
   margin: 0 auto;
   margin-bottom: 20px;
   background: var(--color-bg-2);
@@ -1360,10 +1377,6 @@ const removeVideo = (video) => {
       font-size: 48px;
       color: rgb(var(--arcoblue-6));
       margin-bottom: 20px;
-    }
-
-    .progress-icon {
-      animation: spin 1s linear infinite;
     }
 
     .progress-text {
@@ -1666,6 +1679,101 @@ const removeVideo = (video) => {
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+// 下载管理器样式
+.download-manager {
+  max-height: 600px;
+  overflow-y: auto;
+
+  .empty-downloads {
+    text-align: center;
+    padding: 40px 0;
+    color: var(--color-text-3);
+
+    p {
+      margin-top: 16px;
+      font-size: 14px;
+    }
+  }
+
+  .download-list {
+    .download-task {
+      background: var(--color-fill-1);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+
+      .task-info {
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+
+        .task-cover {
+          width: 120px;
+          height: 67.5px;
+          border-radius: 4px;
+          object-fit: cover;
+        }
+
+        .task-details {
+          flex: 1;
+          min-width: 0;
+
+          .task-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--color-text-1);
+            margin-bottom: 4px;
+            @include text-ellipsis;
+          }
+
+          .task-author {
+            font-size: 13px;
+            color: var(--color-text-3);
+          }
+
+          .task-progress {
+            margin-top: 12px;
+
+            .progress-bar {
+              height: 4px;
+              background: var(--color-fill-3);
+              border-radius: 2px;
+              overflow: hidden;
+              margin-bottom: 8px;
+
+              .progress-inner {
+                height: 100%;
+                background: rgb(var(--arcoblue-6));
+                transition: width 0.3s ease;
+              }
+            }
+
+            .progress-info {
+              display: flex;
+              justify-content: space-between;
+              font-size: 12px;
+              color: var(--color-text-3);
+            }
+          }
+        }
+
+        .task-status {
+          flex-shrink: 0;
+          text-align: right;
+
+          .error-message {
+            margin-top: 8px;
+            font-size: 12px;
+            color: rgb(var(--red-6));
+            max-width: 200px;
+            word-break: break-all;
+          }
+        }
+      }
+    }
   }
 }
 </style>

@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: donghuabox
+appId: com.donghuabox.app
+productName: 动画箱
 directories:
   buildResources: build
 files:
@@ -12,11 +12,22 @@ asarUnpack:
   - resources/**
 win:
   executableName: donghuabox
+  artifactName: ${name}-${version}.${ext}
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
+  artifactName: ${name}-${version}.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
+  deleteAppDataOnUninstall: true
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
+  createStartMenuShortcut: true
+  include: build/installer.nsh
+  allowElevation: true
+  perMachine: true
 mac:
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
@@ -36,9 +47,10 @@ linux:
   category: Utility
 appImage:
   artifactName: ${name}-${version}.${ext}
+
 npmRebuild: false
 publish:
   provider: generic
-  url: https://example.com/auto-updates
+  url: https://donghuabox.cn-nb1.rains3.com/updates
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/
