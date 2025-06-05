@@ -24,6 +24,9 @@
           </a-sub-menu>
         </template>
       </a-menu>
+      <div class="header-actions">
+        <update-checker />
+      </div>
     </a-layout-header>
     <a-layout>
       <a-layout-sider
@@ -53,6 +56,7 @@
 <script setup>
 import menu from '@renderer/model/menu.json'
 import LogData from './log-data.vue'
+import UpdateChecker from './update-checker.vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ref } from 'vue'
 const router = useRouter()
@@ -167,6 +171,13 @@ const onMenuItemClick = (key) => {
         background-color: var(--color-fill-1);
       }
     }
+  }
+
+  .header-actions {
+    margin-left: auto;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
   }
 }
 </style>

@@ -1,6 +1,6 @@
 {
   "name": "donghuabox",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "An Electron application with Vue",
   "main": "./out/main/index.js",
   "author": "example.com",
@@ -22,9 +22,11 @@
     "@electron-toolkit/utils": "^4.0.0",
     "@fortawesome/fontawesome-free": "^6.7.2",
     "electron-dl": "^4.0.0",
-    "electron-updater": "^6.3.9",
+    "electron-log": "^5.4.0",
+    "electron-updater": "^6.6.2",
     "pinia": "^3.0.2",
-    "vue-router": "^4.5.1"
+    "vue-router": "^4.5.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@arco-design/web-vue": "^2.57.0",
